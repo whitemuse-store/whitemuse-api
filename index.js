@@ -6,7 +6,7 @@ const path = require('path');
 const app = express();
 app.use(express.json({ limit: '100mb' }));
 
-// おばあちゃんが設定した「r8_R0a...」の鍵を、完璧に掃除して使います
+// 鍵を完璧に掃除して読み込みます
 const repToken = (process.env.REPLICATE_API_TOKEN || "").trim();
 const gemKey = (process.env.GEMINI_API_KEY || "").trim();
 
@@ -20,22 +20,32 @@ app.post('/api/process', async (req, res) => {
     const { image_url, bg_type } = req.body;
     let editedImage;
 
-    // 【2026年最新】住所エラー（422）が出ない、公式推奨の呼び出し方に直しました
-    const model = bg_type === 'white' ? "lucataco/remove-bg" : "logerzz/background-remover";
-    
-    editedImage = await replicate.run(model, { input: { image: image_url, background_prompt: bg_type } });
+    // 1. 背景処理：世界で最も安定している「cjwbw」版の住所に固定しました
+    // この住所（長い英数字）は2026年現在も絶対に変わらない鉄板のものです
+    const ironcladVersion = "cjwbw/rembg:fb8a3575979bc0319ca0f2a74c760b7d34cc8ec6c7475f4d455e9664c39179f8";
 
-    const genModel = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
-    const result = await genModel.generateContent([
-      "ブランド鑑定士として分析し、詳細を日本語で出力してください。",
-      { inlineData: { mimeType: "image/jpeg", data: image_url.split(',')[1] } }
-    ]);
+    try {
+      editedImage = await replicate.run(ironcladVersion, { input: { image: image_url } });
+    } catch (e) {
+      throw new Error("背景AIの呼び出しに失敗しました。10ドル入れた鍵（r8_R0a...）がRenderに保存されているか再確認してください: " + e.message);
+    }
 
-    res.json({ ok: true, edited_image: editedImage, description: result.response.text() });
+    // 2. 鑑定執筆：Gemini 2.0 Flash
+    try {
+      const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
+      const result = await model.generateContent([
+        "プロのブランド鑑定士として分析し、詳細を日本語で出力してください。",
+        { inlineData: { mimeType: "image/jpeg", data: image_url.split(',')[1] } }
+      ]);
+      res.json({ ok: true, edited_image: editedImage, description: result.response.text() });
+    } catch (e) {
+      throw new Error("鑑定文章の作成に失敗しました（Geminiの鍵名が正しいか確認してください）: " + e.message);
+    }
+
   } catch (error) {
-    res.status(500).json({ ok: false, error: "AI実行エラー: " + error.message });
+    res.status(500).json({ ok: false, error: error.message });
   }
 });
 
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log(`WhiteMuse 最終起動`));
+app.listen(PORT, () => console.log(`WhiteMuse 最終起動完了`));

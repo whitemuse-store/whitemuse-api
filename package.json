@@ -1,13 +1,15 @@
 {
   "name": "whitemuse-api",
   "version": "1.0.0",
+  "description": "WhiteMuse API Server",
   "main": "index.js",
-  "type": "module",
   "scripts": {
     "start": "node index.js"
   },
   "dependencies": {
     "express": "^4.18.2",
-    "cors": "^2.8.5"
+    "replicate": "^0.25.2",
+    "@google/generative-ai": "^0.2.1",
+    "path": "^0.12.7"
   }
 }
